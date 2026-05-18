@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>FSL Live Webcam Test</title>
+</head>
+<body>
+  <h2>FSL Live Webcam Test</h2>
+
+  <video id="video" width="400" autoplay></video>
+  <canvas id="canvas" width="400" height="300" style="display:none;"></canvas>
+
+  <h3>Prediction: <span id="prediction">...</span></h3>
+  <h3>Confidence: <span id="confidence">...</span></h3>
+
+    <script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const predictionEl = document.getElementById("prediction");
+    const confidenceEl = document.getElementById("confidence");
+
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+        console.log("Camera OK");
+        video.srcObject = stream;
+
+        video.onloadedmetadata = () => {
+        video.play();
+        console.log("Video playing");
+        };
+    })
+    .catch(err => {
+        console.error("CAMERA ERROR:", err);
+        alert("Camera blocked or not accessible: " + err.message);
+    });
+
+    async function sendFrame() {
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL("image/jpeg");
+
+    try {
+        const res = await fetch("http://127.0.0.1:5000/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageData })
+        });
+
+        const data = await res.json();
+        console.log("Response:", data);
+
+        if (data.error) {
+        predictionEl.innerText = "ERROR";
+        confidenceEl.innerText = data.error;
+        return;
+        }
+
+        predictionEl.innerText = data.prediction ?? "None";
+        confidenceEl.innerText = data.confidence ?? 0;
+
+    } catch (err) {
+        console.error("Fetch error:", err);
+    }
+    }
+
+    setInterval(sendFrame, 500);
+    </script>
+</body>
+</html>
+

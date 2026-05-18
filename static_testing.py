@@ -15,7 +15,8 @@ hands = mp_hands.Hands(
 mp_draw = mp.solutions.drawing_utils
 
 import cv2
-cap = cv2.VideoCapture(0)  # 0 = default camera
+cap = cv2.VideoCapture(0)  
+# 0 = default camera
 
 
 import numpy as np
