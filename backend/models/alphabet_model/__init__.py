@@ -1,0 +1,1 @@
+"""Alphabet recognition model package."""

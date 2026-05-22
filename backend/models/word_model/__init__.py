@@ -1,0 +1,1 @@
+"""Word recognition model package."""

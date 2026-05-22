@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Signia AI Test</title>
+
+    <style>
+        body {
+            background: #111;
+            color: white;
+            font-family: Arial;
+            text-align: center;
+        }
+
+        video {
+            margin-top: 20px;
+            border: 3px solid white;
+            border-radius: 12px;
+        }
+
+        .prediction-box {
+            margin-top: 20px;
+            font-size: 24px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Signia AI Backend Test</h1>
+
+    <video id="video" width="640" autoplay></video>
+
+    <div class="prediction-box">
+        Prediction:
+        <span id="prediction">...</span>
+    </div>
+
+    <div class="prediction-box">
+        Confidence:
+        <span id="confidence">0</span>
+    </div>
+
+    <div class="prediction-box">
+        Status:
+        <span id="status">Starting camera...</span>
+    </div>
+
+    <script>
+        const video = document.getElementById("video")
+        const predictionElement = document.getElementById("prediction")
+        const confidenceElement = document.getElementById("confidence")
+        const statusElement = document.getElementById("status")
+        const canvas = document.createElement("canvas")
+        let isRequestInFlight = false
+        let streamReady = false
+
+        navigator.mediaDevices.getUserMedia({
+            video: true
+        })
+        .then(stream => {
+            video.srcObject = stream
+            statusElement.innerText = "Camera ready"
+        })
+        .catch(error => {
+            statusElement.innerText = "Camera permission denied"
+            console.error(error)
+        })
+
+        video.addEventListener("loadedmetadata", () => {
+            streamReady = true
+            canvas.width = video.videoWidth
+            canvas.height = video.videoHeight
+        })
+
+        async function fetchPrediction() {
+            if (isRequestInFlight || !streamReady) {
+                return
+            }
+
+            try {
+                isRequestInFlight = true
+                statusElement.innerText = "Predicting..."
+
+                const context = canvas.getContext("2d")
+                context.drawImage(video, 0, 0, canvas.width, canvas.height)
+                const image = canvas.toDataURL("image/jpeg", 0.8)
+
+                const response = await fetch(
+                    "/predict",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            mode: "alphabet",
+                            image
+                        })
+                    }
+                )
+
+                if (!response.ok) {
+                    const errorText = await response.text()
+                    throw new Error(`HTTP ${response.status}: ${errorText}`)
+                }
+
+                const data = await response.json()
+
+                predictionElement.innerText = data.prediction || "None"
+                confidenceElement.innerText = data.confidence || 0
+                statusElement.innerText = data.error || "Prediction updated"
+            }
+            catch (error) {
+                console.error(error)
+                statusElement.innerText = error.message
+            }
+            finally {
+                isRequestInFlight = false
+            }
+        }
+
+        setInterval(fetchPrediction, 1000)
+    </script>
+</body>
+</html>
