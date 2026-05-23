@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from threading import Lock
+
 import cv2
 import mediapipe as mp
 
@@ -12,6 +14,8 @@ class MediaPipeHandsPipeline:
         min_detection_confidence: float = 0.5,
         min_tracking_confidence: float = 0.5,
     ) -> None:
+        self._lock = Lock()
+
         self._hands = mp.solutions.hands.Hands(
             static_image_mode=static_image_mode,
             max_num_hands=max_num_hands,
@@ -22,7 +26,10 @@ class MediaPipeHandsPipeline:
     def process(self, frame):
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         rgb_frame.flags.writeable = False
-        return self._hands.process(rgb_frame)
+
+        with self._lock:
+            return self._hands.process(rgb_frame)
 
     def close(self) -> None:
-        self._hands.close()
+        with self._lock:
+            self._hands.close()

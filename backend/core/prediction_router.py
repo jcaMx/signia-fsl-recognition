@@ -64,19 +64,29 @@ class PredictionRouter:
                 404,
             )
 
-        frame = self._extract_frame_from_payload(payload)
+        frame_source = self._resolve_frame_source(payload)
+        frame = self._load_frame(frame_source=frame_source, payload=payload)
         if frame is None:
-            success, frame = self.camera_manager.read_frame()
-            if not success or frame is None:
+            if frame_source == "client":
                 return (
                     jsonify(
                         {
-                            "error": "Camera not accessible",
-                            "details": "Send an 'image' data URL in the request payload or make sure the backend webcam is available.",
+                            "error": "Client image not provided",
+                            "details": "Send a valid base64 data URL in the 'image' field when frame_source is 'client'.",
                         }
                     ),
-                    503,
+                    400,
                 )
+
+            return (
+                jsonify(
+                    {
+                        "error": "Camera not accessible",
+                        "details": "No client image was provided, so the backend attempted to read from the server webcam.",
+                    }
+                ),
+                503,
+            )
 
         mediapipe_result = self.mediapipe_pipeline.process(frame)
         context = PredictionContext(
@@ -108,9 +118,19 @@ class PredictionRouter:
             response.metadata.setdefault("confidence_threshold", 0.0)
 
         response.metadata.setdefault("stream_id", stream_id)
+        response.metadata.setdefault("frame_source", frame_source)
         response.metadata.setdefault("stabilization_enabled", should_stabilize)
         response.metadata.setdefault("frame_shape", list(frame.shape) if frame is not None else None)
         return jsonify(response.to_dict())
+
+    def _load_frame(self, frame_source: str, payload: dict):
+        if frame_source == "client":
+            return self._extract_frame_from_payload(payload)
+
+        success, frame = self.camera_manager.read_frame()
+        if not success:
+            return None
+        return frame
 
     def _extract_frame_from_payload(self, payload: dict):
         image_data_url = payload.get("image")
@@ -140,15 +160,24 @@ class PredictionRouter:
         )
         return f"{mode}:{client_key}"
 
+    def _resolve_frame_source(self, payload: dict) -> str:
+        requested_source = str(payload.get("frame_source", "")).strip().lower()
+        if requested_source in {"client", "server"}:
+            return requested_source
+
+        image_data = payload.get("image")
+        if isinstance(image_data, str) and image_data:
+            return "client"
+
+        return "server"
+
     def _should_stabilize(self, payload: dict) -> bool:
         explicit_value = payload.get("stabilize")
         if explicit_value is not None:
             return bool(explicit_value)
 
-        # Base64 image uploads are often one-off requests, so return the raw
-        # prediction by default unless the caller explicitly asks for
-        # stabilization.
-        if isinstance(payload.get("image"), str) and payload.get("image"):
+        frame_source = self._resolve_frame_source(payload)
+        if frame_source == "client":
             return False
 
         return True

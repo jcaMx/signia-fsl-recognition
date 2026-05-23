@@ -12,13 +12,13 @@ from core.model_manager import PredictionResponse
 
 @dataclass(frozen=True)
 class PredictionStabilizerConfig:
-    history_size: int = 8
-    stability_window_ms: int = 700
+    history_size: int = 10
+    stability_window_ms: int = 3000
     confidence_threshold: float = 0.60
-    min_consistent_frames: int = 3
-    cooldown_ms: int = 250
-    change_suppression_ms: int = 400
-    stale_ttl_ms: int = 1000
+    min_consistent_frames: int = 2
+    cooldown_ms: int = 300
+    change_suppression_ms: int = 0
+    stale_ttl_ms: int = 5000
 
     @classmethod
     def from_env(cls) -> "PredictionStabilizerConfig":
@@ -85,6 +85,26 @@ class PredictionStabilizer:
         with self._lock:
             state = self._states.setdefault(stream_id, StreamState())
 
+            print(
+                "STABILIZER DEBUG",
+                {
+                    "stream_id": stream_id,
+                    "state_count": len(self._states),
+                    "history_before": len(state.history),
+                    "raw_prediction": raw_prediction,
+                    "raw_confidence": raw_confidence,
+                },
+            )
+
+            print(
+                "STABILIZER AFTER",
+                {
+                    "stream_id": stream_id,
+                    "history_after": len(state.history),
+                    "history_labels": [item.label for item in state.history],
+                },
+            )
+
             if raw_prediction and raw_confidence >= self.config.confidence_threshold:
                 state.history.append(
                     PredictionObservation(
@@ -95,7 +115,7 @@ class PredictionStabilizer:
                 )
                 state.last_observation_at_ms = timestamp_ms
 
-            self._prune_history(state, timestamp_ms)
+            # self._prune_history(state, timestamp_ms)
 
             if self._is_stale(state, timestamp_ms):
                 state.last_emitted_prediction = ""
@@ -142,12 +162,12 @@ class PredictionStabilizer:
                 "stabilized_prediction": candidate_label or "",
                 "stabilized_confidence": candidate_confidence,
                 "stabilized_count": candidate_count,
-                "history_length": len(state.history),
                 "stabilized": bool(candidate_label),
                 "emitted": emitted,
                 "suppressed_change": suppressed_change,
                 "cooldown_remaining_ms": cooldown_remaining_ms,
                 "confidence_threshold": self.config.confidence_threshold,
+                "history_length": len(state.history),
             }
         )
 

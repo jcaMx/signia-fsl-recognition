@@ -9,12 +9,12 @@ The current alphabet pipeline is designed to stay close to the training and test
 - MediaPipe extracts `21 x (x, y, z)` landmarks
 - landmarks are normalized with the same preprocessing logic used during training
 - the saved `label_encoder.pkl` is used to decode model outputs
-- prediction stabilization is available for streaming use cases, but one-off image requests bypass it by default
+- prediction stabilization is available for streaming use cases
 
-That split is important:
+The `/predict` endpoint supports two frame-source styles without changing predictor code:
 
-- single image upload or snapshot request: return the direct prediction
-- live stream or repeated frame polling: optionally use stabilization to reduce flicker
+- web client flow: the client owns the webcam and sends a base64 image
+- Godot flow: Flask owns the webcam and the client sends only prediction options
 
 ## Architecture
 
@@ -23,14 +23,16 @@ frontend / game / web client
     -> POST /predict
     -> PredictionRouter
     -> ModelManager selects predictor by mode
-    -> frame source
-       - payload image, or
-       - backend webcam fallback
+    -> frame source resolution
+       - `frame_source: "client"` -> decode payload image
+       - `frame_source: "server"` -> read from Flask webcam
+       - missing `frame_source` -> auto-detect from payload
     -> MediaPipeHandsPipeline
     -> predictor-specific preprocessing + model inference
     -> optional PredictionStabilizer
     -> JSON response
 ```
+
 
 ## Project Structure
 
@@ -90,8 +92,9 @@ This is the HTTP layer.
 Responsibilities:
 
 - parse requests
-- decode base64 images when provided
-- fall back to the backend webcam if no image is sent
+- resolve frame source
+- decode base64 images for client-owned webcam flows
+- capture frames from `CameraManager` for server-owned webcam flows
 - run the MediaPipe pipeline
 - invoke the selected predictor
 - optionally stabilize predictions
@@ -124,7 +127,7 @@ The stabilizer is applied per stream id, so multiple clients can coexist without
 
 ### `webcam/camera_manager.py`
 
-Handles backend webcam access when the client does not send an image.
+Handles backend webcam access when the router needs a server-owned frame source.
 
 Current behavior includes:
 
@@ -181,21 +184,39 @@ Returns the registered model modes.
 
 Primary prediction endpoint.
 
-Example payload for uploaded image inference:
+Example payload for a web client:
 
 ```json
 {
   "mode": "alphabet",
+  "frame_source": "client",
   "image": "data:image/jpeg;base64,..."
+}
+```
+
+Example payload for Godot or another HTTP client that wants Flask to own the webcam:
+
+```json
+{
+  "mode": "alphabet",
+  "frame_source": "server",
+  "stabilize": true,
+  "stream_id": "godot-player-1"
 }
 ```
 
 Optional fields:
 
+- `frame_source`: `"client"` or `"server"`
 - `stabilize`: force enable or disable stabilization
 - `stream_id`: client stream key for stabilization
 - `session_id`: alternate stream key
 - `client_id`: alternate stream key
+
+If `frame_source` is omitted, the router auto-detects:
+
+- `image` present -> `client`
+- no `image` -> `server`
 
 ### `GET /predict_letter`
 
@@ -212,6 +233,7 @@ Typical response fields:
   "mode": "alphabet",
   "raw_prediction": "W",
   "raw_confidence": 0.999,
+  "frame_source": "client",
   "stabilization_enabled": false,
   "frame_shape": [480, 640, 3],
   "hand_detected": true,
@@ -232,48 +254,57 @@ Notes:
 
 ## Frontend Integration
 
-### 1. One-off image prediction
-
-Use this when the frontend sends a single captured frame or image upload.
+### 1. Web client flow
 
 Recommended payload:
 
 ```json
 {
   "mode": "alphabet",
-  "image": "data:image/jpeg;base64,..."
+  "frame_source": "client",
+  "image": "data:image/jpeg;base64,...",
+  "stream_id": "web-client-1"
 }
 ```
 
 Behavior:
 
-- stabilization is disabled by default for image payloads
-- `prediction` should return immediately
-- best for manual capture buttons, snapshots, and debug tools
+- browser captures frames locally
+- Flask decodes the image payload
+- use a stable `stream_id` for stabilization
+- best for browser-based live preview and testing
 
-### 2. Live streaming or repeated polling
-
-Use this when the frontend is sending a continuous stream of frames.
+### 2. Godot or server-webcam flow
 
 Recommended payload:
 
 ```json
 {
   "mode": "alphabet",
-  "image": "data:image/jpeg;base64,...",
+  "frame_source": "server",
   "stabilize": true,
-  "stream_id": "player-1"
+  "stream_id": "godot-player-1"
 }
 ```
 
 Recommendations:
 
+- Godot does not need to manage camera capture here
+- Flask uses `CameraManager.read_frame()` internally
 - keep the same `stream_id` for the same user/session
-- send frames at a steady rate
 - display `prediction`, not `raw_prediction`, if you want flicker reduction
 - display `raw_prediction` only for debugging
 
-### 3. Which field should the frontend display?
+### 3. Auto-detection behavior
+
+If the client does not send `frame_source`:
+
+- sending an `image` makes the router use `client`
+- omitting `image` makes the router use `server`
+
+This keeps the endpoint flexible without hardcoding different predictor logic.
+
+### 4. Which field should the frontend display?
 
 Use:
 
@@ -282,13 +313,14 @@ Use:
 
 If `stabilization_enabled` is `false`, the final and raw outputs should be effectively the same.
 
-### 4. Error handling
+### 5. Error handling
 
 The frontend should handle:
 
 - no hand detected
 - unsupported mode
-- camera unavailable when no image was sent
+- invalid client image when `frame_source` is `client`
+- camera unavailable when `frame_source` is `server`
 - unimplemented predictor modes
 
 ## Extension Strategy
@@ -333,7 +365,7 @@ The current backend is structured around a few practical rules:
 
 - shared transport, mode-specific inference
 - preprocessing should mirror training artifacts whenever possible
-- one-off image inference and streaming inference should not be forced into the same UX
+- frame acquisition and prediction logic should stay separate
 - stabilization should improve UX, not hide valid raw predictions
 - new modes should be pluggable without editing the app bootstrap
 
@@ -372,5 +404,6 @@ These are especially useful when tuning live webcam UX.
 ## Practical Notes
 
 - The backend alphabet predictor currently uses the root-level trained artifacts, not the older local `backend/models/alphabet_model/model.keras` path.
+- The router supports both client-owned and server-owned webcam flows through `frame_source`, while predictors remain unchanged.
 - The `backend/models/<mode>/predictor.py` layout still matters because it is how modes are discovered and extended.
 - Some registered modes are placeholders and may return `501 Not Implemented` until their predictors are completed.

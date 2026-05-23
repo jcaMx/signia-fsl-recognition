@@ -1,124 +1,235 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Signia AI Test</title>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signia AI Webcam Test</title>
     <style>
         body {
-            background: #111;
-            color: white;
-            font-family: Arial;
+            margin: 0;
+            background: #101820;
+            color: #f3f6f8;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             text-align: center;
         }
 
-        video {
-            margin-top: 20px;
-            border: 3px solid white;
-            border-radius: 12px;
+        .page {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 32px 20px 48px;
         }
 
-        .prediction-box {
+        h1 {
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            margin: 0 auto 24px;
+            max-width: 700px;
+            color: #a8bac6;
+            line-height: 1.5;
+        }
+
+        video {
+            width: min(100%, 640px);
+            border: 3px solid #5eead4;
+            border-radius: 16px;
+            background: #020617;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+            margin-top: 24px;
+        }
+
+        .card {
+            padding: 16px;
+            border-radius: 14px;
+            background: #17212b;
+            border: 1px solid #29404f;
+        }
+
+        .label {
+            color: #8eb3c7;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+
+        .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        .status {
             margin-top: 20px;
-            font-size: 24px;
+            color: #bfe6d7;
+            min-height: 24px;
         }
     </style>
 </head>
-
 <body>
-    <h1>Signia AI Backend Test</h1>
+    <div class="page">
+        <h1>Signia AI Backend Test</h1>
+        <p class="subtitle">
+            This page demonstrates the web-client flow where the browser owns the webcam and sends
+            base64 frames to Flask. The backend can also support a server-owned webcam for Godot by
+            switching `frame_source` to `server` and omitting the image payload.
+        </p>
 
-    <video id="video" width="640" autoplay></video>
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas" style="display: none;"></canvas>
 
-    <div class="prediction-box">
-        Prediction:
-        <span id="prediction">...</span>
-    </div>
+        <div class="stats">
+            <div class="card">
+                <div class="label">Prediction</div>
+                <div class="value" id="prediction">...</div>
+            </div>
+            <div class="card">
+                <div class="label">Confidence</div>
+                <div class="value" id="confidence">0</div>
+            </div>
+            <div class="card">
+                <div class="label">History Length</div>
+                <div class="value" id="history-length">0</div>
+            </div>
+            <div class="card">
+                <div class="label">Stabilized / Emitted</div>
+                <div class="value" id="stability-state">false / false</div>
+            </div>
+        </div>
 
-    <div class="prediction-box">
-        Confidence:
-        <span id="confidence">0</span>
-    </div>
-
-    <div class="prediction-box">
-        Status:
-        <span id="status">Starting camera...</span>
+        <div class="status" id="status">Starting camera...</div>
     </div>
 
     <script>
-        const video = document.getElementById("video")
-        const predictionElement = document.getElementById("prediction")
-        const confidenceElement = document.getElementById("confidence")
-        const statusElement = document.getElementById("status")
-        const canvas = document.createElement("canvas")
-        let isRequestInFlight = false
-        let streamReady = false
+        const API_URL = "http://127.0.0.1:5000/predict";
+        const POLL_INTERVAL_MS = 120;
+        const STREAM_ID = "client-1";
 
-        navigator.mediaDevices.getUserMedia({
-            video: true
-        })
-        .then(stream => {
-            video.srcObject = stream
-            statusElement.innerText = "Camera ready"
-        })
-        .catch(error => {
-            statusElement.innerText = "Camera permission denied"
-            console.error(error)
-        })
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext("2d");
 
-        video.addEventListener("loadedmetadata", () => {
-            streamReady = true
-            canvas.width = video.videoWidth
-            canvas.height = video.videoHeight
-        })
+        const predictionElement = document.getElementById("prediction");
+        const confidenceElement = document.getElementById("confidence");
+        const historyLengthElement = document.getElementById("history-length");
+        const stabilityStateElement = document.getElementById("stability-state");
+        const statusElement = document.getElementById("status");
 
-        async function fetchPrediction() {
-            if (isRequestInFlight || !streamReady) {
-                return
-            }
+        let isSendingFrame = false;
+        let streamReady = false;
+        let pollTimerId = null;
 
+        async function setupCamera() {
             try {
-                isRequestInFlight = true
-                statusElement.innerText = "Predicting..."
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    },
+                    audio: false
+                });
 
-                const context = canvas.getContext("2d")
-                context.drawImage(video, 0, 0, canvas.width, canvas.height)
-                const image = canvas.toDataURL("image/jpeg", 0.8)
-
-                const response = await fetch(
-                    "/predict",
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            mode: "alphabet",
-                            image
-                        })
-                    }
-                )
-
-                if (!response.ok) {
-                    const errorText = await response.text()
-                    throw new Error(`HTTP ${response.status}: ${errorText}`)
-                }
-
-                const data = await response.json()
-
-                predictionElement.innerText = data.prediction || "None"
-                confidenceElement.innerText = data.confidence || 0
-                statusElement.innerText = data.error || "Prediction updated"
-            }
-            catch (error) {
-                console.error(error)
-                statusElement.innerText = error.message
-            }
-            finally {
-                isRequestInFlight = false
+                video.srcObject = stream;
+                await video.play();
+                statusElement.innerText = "Camera ready. Sending stabilized frame stream...";
+            } catch (error) {
+                console.error("Camera error:", error);
+                statusElement.innerText = `Camera error: ${error.message}`;
             }
         }
 
-        setInterval(fetchPrediction, 1000)
+        function prepareCanvas() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            streamReady = true;
+        }
+
+        async function sendFrame() {
+            if (isSendingFrame || !streamReady) {
+                return;
+            }
+
+            isSendingFrame = true;
+
+            try {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const image = canvas.toDataURL("image/jpeg", 0.8);
+
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        mode: "alphabet",
+                        frame_source: "client",
+                        image,
+                        stabilize: true,
+                        stream_id: STREAM_ID
+                    })
+                });
+
+                if (!response.ok) {
+                    let errorBody = "";
+                    try {
+                        errorBody = await response.text();
+                    } catch (readError) {
+                        console.error("Failed to read error response body:", readError);
+                    }
+                    throw new Error(`Request failed with ${response.status} ${response.statusText}${errorBody ? `: ${errorBody}` : ""}`);
+                }
+
+                const data = await response.json();
+
+                predictionElement.innerText = data.prediction || "None";
+                confidenceElement.innerText = typeof data.confidence === "number"
+                    ? data.confidence.toFixed(3)
+                    : "0";
+                historyLengthElement.innerText = data.history_length ?? 0;
+                stabilityStateElement.innerText = `${Boolean(data.stabilized)} / ${Boolean(data.emitted)}`;
+                statusElement.innerText = data.error || "Streaming frames to stabilizer";
+
+                console.log("Stabilizer debug", {
+                    history_length: data.history_length,
+                    stabilized: data.stabilized,
+                    emitted: data.emitted,
+                    prediction: data.prediction,
+                    raw_prediction: data.raw_prediction,
+                    stream_id: data.stream_id
+                });
+            } catch (error) {
+                console.error("Prediction request error:", error);
+                statusElement.innerText = `Fetch error: ${error.message}`;
+            } finally {
+                isSendingFrame = false;
+            }
+        }
+
+        function startPolling() {
+            if (pollTimerId !== null) {
+                clearInterval(pollTimerId);
+            }
+
+            // Faster polling is required because the backend stabilizer uses a short
+            // rolling time window. If frames arrive too slowly, the history never
+            // accumulates enough consistent observations to emit a final prediction.
+            pollTimerId = window.setInterval(() => {
+                void sendFrame();
+            }, POLL_INTERVAL_MS);
+        }
+
+        video.addEventListener("loadedmetadata", () => {
+            prepareCanvas();
+            startPolling();
+        });
+
+        void setupCamera();
     </script>
 </body>
 </html>
