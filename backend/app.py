@@ -21,7 +21,7 @@ def create_app() -> Flask:
     model_manager.discover_models()
 
     camera_manager = CameraManager()
-    mediapipe_pipeline = MediaPipeHandsPipeline()
+    mediapipe_pipeline = MediaPipeHandsPipeline(max_num_hands=2)
     prediction_stabilizer = PredictionStabilizer(PredictionStabilizerConfig.from_env())
     mp_draw = mp.solutions.drawing_utils
     mp_hands = mp.solutions.hands

@@ -43,6 +43,7 @@ class PredictionRouter:
 
         @self.blueprint.post("/predict")
         def predict():
+            print("PREDICT REQUEST RECEIVED")
             payload = request.get_json(silent=True) or {}
             mode = payload.get("mode", "alphabet")
             return self._predict_for_mode(mode, payload)
@@ -117,6 +118,15 @@ class PredictionRouter:
             response.metadata.setdefault("cooldown_remaining_ms", 0)
             response.metadata.setdefault("confidence_threshold", 0.0)
 
+        raw_landmarks = []
+        if mediapipe_result and getattr(mediapipe_result, "multi_hand_landmarks", None):
+            for hand_landmarks in mediapipe_result.multi_hand_landmarks:
+                hand_list = []
+                for lm in hand_landmarks.landmark:
+                    hand_list.append({"x": lm.x, "y": lm.y, "z": lm.z})
+                raw_landmarks.append(hand_list)
+
+        response.metadata["landmarks"] = raw_landmarks
         response.metadata.setdefault("stream_id", stream_id)
         response.metadata.setdefault("frame_source", frame_source)
         response.metadata.setdefault("stabilization_enabled", should_stabilize)

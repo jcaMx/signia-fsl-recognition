@@ -41,6 +41,7 @@ hands = mp_hands.Hands(
 # -------------------------------
 @app.route('/predict', methods=['POST'])
 def predict():
+    print("PREDICT REQUEST RECEIVED")
     data = request.json['image']
 
     # Decode base64 image
@@ -58,8 +59,10 @@ def predict():
 
     # Extract landmarks
     landmarks = []
+    raw_landmarks = []
     for lm in hand_landmarks.landmark:
         landmarks.extend([lm.x, lm.y, lm.z])
+        raw_landmarks.append({"x": lm.x, "y": lm.y, "z": lm.z})
 
     # Apply preprocessing
     landmarks = normalize_landmarks(
@@ -76,7 +79,8 @@ def predict():
 
     return jsonify({
         "prediction": letter,
-        "confidence": float(np.max(pred_probs))
+        "confidence": float(np.max(pred_probs)),
+        "landmarks": raw_landmarks
     })
 
 # -------------------------------
