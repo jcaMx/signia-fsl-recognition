@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import sys
+
 import cv2
-import mediapipe as mp
 from flask import Flask, Response, render_template, request, stream_with_context
 from flask_cors import CORS
 
@@ -23,8 +24,6 @@ def create_app() -> Flask:
     camera_manager = CameraManager()
     mediapipe_pipeline = MediaPipeHandsPipeline(max_num_hands=2)
     prediction_stabilizer = PredictionStabilizer(PredictionStabilizerConfig.from_env())
-    mp_draw = mp.solutions.drawing_utils
-    mp_hands = mp.solutions.hands
 
     prediction_router = PredictionRouter(
         model_manager=model_manager,
@@ -39,8 +38,12 @@ def create_app() -> Flask:
 
     @app.get("/debug_feed")
     def debug_feed():
+        import mediapipe as mp
+
         mode = request.args.get("mode", "alphabet")
         predictor = model_manager.get(mode)
+        mp_draw = mp.solutions.drawing_utils
+        mp_hands = mp.solutions.hands
 
         def generate():
             while True:
@@ -115,8 +118,16 @@ def create_app() -> Flask:
     return app
 
 
-app = create_app()
+def main() -> None:
+    print("Starting Signia Flask backend...", flush=True)
+    print(f"Python executable: {sys.executable}", flush=True)
+    print(f"Python version: {sys.version}", flush=True)
+    flask_app = create_app()
+    print("Flask app created. Starting development server on http://127.0.0.1:5000", flush=True)
+    flask_app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    main()
+else:
+    app = create_app()
