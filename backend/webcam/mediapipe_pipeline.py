@@ -3,7 +3,6 @@ from __future__ import annotations
 from threading import Lock
 
 import cv2
-import mediapipe as mp
 
 
 class MediaPipeHandsPipeline:
@@ -15,21 +14,30 @@ class MediaPipeHandsPipeline:
         min_tracking_confidence: float = 0.5,
     ) -> None:
         self._lock = Lock()
+        self._hands = None
+        self._hands_options = {
+            "static_image_mode": static_image_mode,
+            "max_num_hands": max_num_hands,
+            "min_detection_confidence": min_detection_confidence,
+            "min_tracking_confidence": min_tracking_confidence,
+        }
 
-        self._hands = mp.solutions.hands.Hands(
-            static_image_mode=static_image_mode,
-            max_num_hands=max_num_hands,
-            min_detection_confidence=min_detection_confidence,
-            min_tracking_confidence=min_tracking_confidence,
-        )
+    def _get_hands(self):
+        if self._hands is None:
+            import mediapipe as mp
+
+            self._hands = mp.solutions.hands.Hands(**self._hands_options)
+        return self._hands
 
     def process(self, frame):
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         rgb_frame.flags.writeable = False
 
         with self._lock:
-            return self._hands.process(rgb_frame)
+            return self._get_hands().process(rgb_frame)
 
     def close(self) -> None:
         with self._lock:
-            self._hands.close()
+            if self._hands is not None:
+                self._hands.close()
+                self._hands = None

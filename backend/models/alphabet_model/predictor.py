@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-from keras.models import load_model
 
 from core.model_manager import (
     BasePredictor,
@@ -45,6 +44,8 @@ class AlphabetPredictor(BasePredictor):
 
     def _load_model(self):
         if self._model is None:
+            from keras.models import load_model
+
             self._model = load_model(self.model_path)
         return self._model
 
