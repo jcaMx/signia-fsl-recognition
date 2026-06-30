@@ -3,7 +3,7 @@ import numpy as np
 import pickle
 from collections import deque
 from tensorflow.keras.models import load_model
-from fsl_preprocessing import normalize_landmarks
+from src.preprocessing.normalization import normalize_landmarks
   
 
 # Load model

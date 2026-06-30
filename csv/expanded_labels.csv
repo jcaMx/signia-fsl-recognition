@@ -1,0 +1,106 @@
+id,label,display_label,category,modality,enabled
+0,GOOD MORNING,Good Morning,GREETING,dynamic,true
+1,GOOD AFTERNOON,Good Afternoon,GREETING,dynamic,true
+2,GOOD EVENING,Good Evening,GREETING,dynamic,true
+3,HELLO,Hello,GREETING,dynamic,true
+4,HOW ARE YOU,How Are You,GREETING,dynamic,true
+5,IM FINE,I'm Fine,GREETING,dynamic,true
+6,NICE TO MEET YOU,Nice To Meet You,GREETING,dynamic,true
+7,THANK YOU,Thank You,GREETING,dynamic,true
+8,YOURE WELCOME,You're Welcome,GREETING,dynamic,true
+9,SEE YOU TOMORROW,See You Tomorrow,GREETING,dynamic,true
+10,UNDERSTAND,Understand,SURVIVAL,dynamic,true
+11,DONT UNDERSTAND,Don’t Understand,SURVIVAL,dynamic,true
+12,KNOW,Know,SURVIVAL,dynamic,true
+13,DONT KNOW,Don’t Know,SURVIVAL,dynamic,true
+14,NO,No,SURVIVAL,dynamic,true
+15,YES,Yes,SURVIVAL,dynamic,true
+16,WRONG,Wrong,SURVIVAL,dynamic,true
+17,CORRECT,Correct,SURVIVAL,dynamic,true
+18,SLOW,Slow,SURVIVAL,dynamic,true
+19,FAST,Fast,SURVIVAL,dynamic,true
+20,ONE,One,NUMBER,dynamic,true
+21,TWO,Two,NUMBER,dynamic,true
+22,THREE,Three,NUMBER,dynamic,true
+23,FOUR,Four,NUMBER,dynamic,true
+24,FIVE,Five,NUMBER,dynamic,true
+25,SIX,Six,NUMBER,dynamic,true
+26,SEVEN,Seven,NUMBER,dynamic,true
+27,EIGHT,Eight,NUMBER,dynamic,true
+28,NINE,Nine,NUMBER,dynamic,true
+29,TEN,Ten,NUMBER,dynamic,true
+30,JANUARY,January,CALENDAR,dynamic,true
+31,FEBRUARY,February,CALENDAR,dynamic,true
+32,MARCH,March,CALENDAR,dynamic,true
+33,APRIL,April,CALENDAR,dynamic,true
+34,MAY,May,CALENDAR,dynamic,true
+35,JUNE,June,CALENDAR,dynamic,true
+36,JULY,July,CALENDAR,dynamic,true
+37,AUGUST,August,CALENDAR,dynamic,true
+38,SEPTEMBER,September,CALENDAR,dynamic,true
+39,OCTOBER,October,CALENDAR,dynamic,true
+40,NOVEMBER,November,CALENDAR,dynamic,true
+41,DECEMBER,December,CALENDAR,dynamic,true
+42,MONDAY,Monday,DAYS,dynamic,true
+43,TUESDAY,Tuesday,DAYS,dynamic,true
+44,WEDNESDAY,Wednesday,DAYS,dynamic,true
+45,THURSDAY,Thursday,DAYS,dynamic,true
+46,FRIDAY,Friday,DAYS,dynamic,true
+47,SATURDAY,Saturday,DAYS,dynamic,true
+48,SUNDAY,Sunday,DAYS,dynamic,true
+49,TODAY,Today,DAYS,dynamic,true
+50,TOMORROW,Tomorrow,DAYS,dynamic,true
+51,YESTERDAY,Yesterday,DAYS,dynamic,true
+52,FATHER,Father,FAMILY,dynamic,true
+53,MOTHER,Mother,FAMILY,dynamic,true
+54,SON,Son,FAMILY,dynamic,true
+55,DAUGHTER,Daughter,FAMILY,dynamic,true
+56,GRANDFATHER,Grandfather,FAMILY,dynamic,true
+57,GRANDMOTHER,Grandmother,FAMILY,dynamic,true
+58,UNCLE,Uncle,FAMILY,dynamic,true
+59,AUNTIE,Auntie,FAMILY,dynamic,true
+60,COUSIN,Cousin,FAMILY,dynamic,true
+61,PARENTS,Parents,FAMILY,dynamic,true
+62,BOY,Boy,RELATIONSHIPS,dynamic,true
+63,GIRL,Girl,RELATIONSHIPS,dynamic,true
+64,MAN,Man,RELATIONSHIPS,dynamic,true
+65,WOMAN,Woman,RELATIONSHIPS,dynamic,true
+66,DEAF,Deaf,RELATIONSHIPS,dynamic,true
+67,HARD OF HEARING,Hard Of Hearing,RELATIONSHIPS,dynamic,true
+68,WHEELCHAIR PERSON,Wheelchair Person,RELATIONSHIPS,dynamic,true
+69,BLIND,Blind,RELATIONSHIPS,dynamic,true
+70,DEAF BLIND,Deaf Blind,RELATIONSHIPS,dynamic,true
+71,MARRIED,Married,RELATIONSHIPS,dynamic,true
+72,BLUE,Blue,COLOR,dynamic,true
+73,GREEN,Green,COLOR,dynamic,true
+74,RED,Red,COLOR,dynamic,true
+75,BROWN,Brown,COLOR,dynamic,true
+76,BLACK,Black,COLOR,dynamic,true
+77,WHITE,White,COLOR,dynamic,true
+78,YELLOW,Yellow,COLOR,dynamic,true
+79,ORANGE,Orange,COLOR,dynamic,true
+80,GRAY,Gray,COLOR,dynamic,true
+81,PINK,Pink,COLOR,dynamic,true
+82,VIOLET,Violet,COLOR,dynamic,true
+83,LIGHT,Light,COLOR,dynamic,true
+84,DARK,Dark,COLOR,dynamic,true
+85,BREAD,Bread,FOOD,dynamic,true
+86,EGG,Egg,FOOD,dynamic,true
+87,FISH,Fish,FOOD,dynamic,true
+88,MEAT,Meat,FOOD,dynamic,true
+89,CHICKEN,Chicken,FOOD,dynamic,true
+90,SPAGHETTI,Spaghetti,FOOD,dynamic,true
+91,RICE,Rice,FOOD,dynamic,true
+92,LONGANISA,Longanisa,FOOD,dynamic,true
+93,SHRIMP,Shrimp,FOOD,dynamic,true
+94,CRAB,Crab,FOOD,dynamic,true
+95,HOT,Hot,DRINK,dynamic,true
+96,COLD,Cold,DRINK,dynamic,true
+97,JUICE,Juice,DRINK,dynamic,true
+98,MILK,Milk,DRINK,dynamic,true
+99,COFFEE,Coffee,DRINK,dynamic,true
+100,TEA,Tea,DRINK,dynamic,true
+101,BEER,Beer,DRINK,dynamic,true
+102,WINE,Wine,DRINK,dynamic,true
+103,SUGAR,Sugar,DRINK,dynamic,true
+104,NO SUGAR,No Sugar,DRINK,dynamic,true

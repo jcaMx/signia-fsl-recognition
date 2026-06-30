@@ -21,7 +21,9 @@ cap = cv2.VideoCapture(0)
 
 import numpy as np
 import pickle
-from fsl_preprocessing import normalize_landmarks, preprocess_sample, extract_keypoints_from_hand_landmarks
+from src.preprocessing.normalization import normalize_landmarks
+from src.preprocessing.static_preprocessing import preprocess_static_landmarks as preprocess_sample
+
 
 
 # -------------------------------
