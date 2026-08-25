@@ -570,7 +570,8 @@ video_id,video_path,label_id,label,display_label,category,modality,signer_id,tak
 027_014,c:\Projects\signia-fsl-recognition\dynamic_raw\27\20.MOV,27,EIGHT,Eight,NUMBER,dynamic,unknown,14,True,60.0,243,4.05
 027_015,c:\Projects\signia-fsl-recognition\dynamic_raw\27\3.MOV,27,EIGHT,Eight,NUMBER,dynamic,unknown,15,True,60.0,243,4.05
 027_016,c:\Projects\signia-fsl-recognition\dynamic_raw\27\4.MOV,27,EIGHT,Eight,NUMBER,dynamic,unknown,16,True,60.0,243,4.05
-027_017,c:\Projects\signia-fsl-recognition\dynamic_raw\27\5.MOV,27,EIGHT,Eight,NUMBER,dynamic,unknown,17,True,60.0,243,4.05
+027_017,
+,27,EIGHT,Eight,NUMBER,dynamic,unknown,17,True,60.0,243,4.05
 027_018,c:\Projects\signia-fsl-recognition\dynamic_raw\27\6.MOV,27,EIGHT,Eight,NUMBER,dynamic,unknown,18,True,60.0,244,4.066666666666666
 027_019,c:\Projects\signia-fsl-recognition\dynamic_raw\27\7.MOV,27,EIGHT,Eight,NUMBER,dynamic,unknown,19,True,60.0,244,4.066666666666666
 027_020,c:\Projects\signia-fsl-recognition\dynamic_raw\27\8.MOV,27,EIGHT,Eight,NUMBER,dynamic,unknown,20,True,60.0,243,4.05

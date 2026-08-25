@@ -1,35 +1,55 @@
 import numpy as np
 
-def normalize_landmarks(landmarks, scale_mode='bbox'):
-    """
-    Normalize hand landmarks relative to wrist and scale them.
-
-    Args:
-        landmarks: list or array of 63 floats (21 points x 3)
-        scale_mode: 'bbox', 'max_dist', or 'none'
-
-    Returns:
-        normalized_landmarks: list of 63 floats normalized
-    """
-    landmarks = np.array(landmarks).reshape(21, 3)
-    wrist = landmarks[0]
-
-    # Make wrist origin
-    landmarks -= wrist
+def _normalize_single_hand(hand, scale_mode):
+    """Normalize one hand (21,3)"""
+    wrist = hand[0]
+    hand = hand - wrist
 
     if scale_mode == 'bbox':
-        # Scale to bounding box [-1, 1]
-        min_vals = landmarks.min(axis=0)
-        max_vals = landmarks.max(axis=0)
-        scale = max(max_vals - min_vals)
+        min_vals = hand.min(axis=0)
+        max_vals = hand.max(axis=0)
+        scale = np.max(max_vals - min_vals)
         if scale > 0:
-            landmarks /= scale
-    elif scale_mode == 'max_dist':
-        # Scale by max distance to wrist
-        dists = np.linalg.norm(landmarks, axis=1)
-        max_dist = dists.max()
-        if max_dist > 0:
-            landmarks /= max_dist
-    # else: 'none' -> leave as is
+            hand = hand / scale
 
-    return landmarks.flatten().tolist()
+    elif scale_mode == 'max_dist':
+        dists = np.linalg.norm(hand, axis=1)
+        scale = np.max(dists)
+        if scale > 0:
+            hand = hand / scale
+
+    return hand
+
+
+def normalize_landmarks(landmarks, scale_mode='bbox'):
+    """
+    Supports:
+    - 63 = single hand
+    - 126 = two hands (left + right)
+    Returns: flattened vector (63 or 126 normalized)
+    """
+
+    landmarks = np.asarray(landmarks)
+
+    # -------------------------
+    # SINGLE HAND
+    # -------------------------
+    if landmarks.shape[0] == 63:
+        hand = landmarks.reshape(21, 3)
+        hand = _normalize_single_hand(hand, scale_mode)
+        return hand.flatten().tolist()
+
+    # -------------------------
+    # TWO HANDS
+    # -------------------------
+    if landmarks.shape[0] == 126:
+        left = landmarks[:63].reshape(21, 3)
+        right = landmarks[63:].reshape(21, 3)
+
+        left = _normalize_single_hand(left, scale_mode)
+        right = _normalize_single_hand(right, scale_mode)
+
+        # IMPORTANT: keep structure consistent
+        return np.concatenate([left.flatten(), right.flatten()]).tolist()
+
+    raise ValueError(f"Unexpected landmark size: {landmarks.shape}")
