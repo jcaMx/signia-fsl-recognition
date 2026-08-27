@@ -566,6 +566,15 @@ def train(
         config,
     )
 
+    def print_distribution(y_split, name):
+        classes, counts = np.unique(y_split, return_counts=True)
+        dist = {label_encoder.inverse_transform([c])[0]: count for c, count in zip(classes, counts)}
+        print(f"{name} distribution: {dist}")
+
+    print_distribution(y_train, "Train")
+    print_distribution(y_val, "Validation")
+    print_distribution(y_test, "Test")
+
     print(
         f"Train: {len(X_train)}"
     )
@@ -655,6 +664,13 @@ def train(
         lr=config.learning_rate,
     )
 
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode='max',
+        factor=0.5,
+        patience=max(1, config.patience // 2),
+    )
+
     # --------------------------------------------------------
     # Output paths
     # --------------------------------------------------------
@@ -740,10 +756,14 @@ def train(
         history["val_acc"].append(
             val_acc
         )
+        
+        scheduler.step(val_acc)
+        current_lr = optimizer.param_groups[0]['lr']
 
         print(
             f"Epoch {epoch + 1:02d}/"
             f"{config.epochs} | "
+            f"LR: {current_lr:.6f} | "
             f"Train Loss: {train_loss:.4f} | "
             f"Train Acc: {train_acc:.3f} | "
             f"Val Loss: {val_loss:.4f} | "
@@ -772,6 +792,9 @@ def train(
 
                     "classes":
                         label_encoder.classes,
+                        
+                    "original_label_ids":
+                        label_ids,
 
                     "best_val_accuracy":
                         best_val_acc,
@@ -845,6 +868,40 @@ def train(
         f"Test accuracy: "
         f"{test_accuracy:.4f}"
     )
+    
+    # --------------------------------------------------------
+    # Confusion Matrix Reporting
+    # --------------------------------------------------------
+    from sklearn.metrics import confusion_matrix
+    
+    all_preds = []
+    all_targets = []
+    
+    with torch.no_grad():
+        for X_batch, y_batch in test_loader:
+            X_batch = X_batch.to(device)
+            logits = model(X_batch)
+            preds = torch.argmax(logits, dim=1)
+            all_preds.extend(preds.cpu().numpy())
+            all_targets.extend(y_batch.numpy())
+            
+    cm = confusion_matrix(all_targets, all_preds, labels=range(label_encoder.num_classes))
+    
+    print("\n--- Top Confused Pairs (Test Set) ---")
+    confusions = []
+    for i in range(label_encoder.num_classes):
+        for j in range(label_encoder.num_classes):
+            if i != j and cm[i, j] > 0:
+                true_label = label_encoder.inverse_transform([i])[0]
+                pred_label = label_encoder.inverse_transform([j])[0]
+                confusions.append((cm[i, j], true_label, pred_label))
+                
+    confusions.sort(key=lambda x: x[0], reverse=True)
+    if confusions:
+        for count, t_lbl, p_lbl in confusions[:15]:
+            print(f"True: {t_lbl:20} -> Predicted: {p_lbl:20} | Count: {count}")
+    else:
+        print("No confusions found on the test set!")
 
     return {
         "model": model,

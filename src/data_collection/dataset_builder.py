@@ -77,15 +77,80 @@ class DatasetBuilder:
 
     def merge_with_existing(self, existing_X, existing_y):
         """
-        Merges newly collected dataset with an existing dataset.
+        Merges newly collected dataset with an existing X/y numpy pair.
         Returns merged X, y
         """
         new_X, new_y = self.build_dataset()
-        
+
         if len(new_X) == 0:
+            print("No collected samples found — returning original dataset unchanged.")
             return existing_X, existing_y
-            
+
         merged_X = np.concatenate([existing_X, new_X], axis=0)
         merged_y = np.concatenate([existing_y, new_y], axis=0)
-        
+
+        print(f"Merged {len(new_X)} collected samples into dataset. "
+              f"Total: {len(merged_X)} samples.")
+
         return merged_X, merged_y
+
+    def merge_with_bundle(self, bundle_path):
+        """
+        Loads an existing .pt bundle (containing 'X' and 'y') and merges
+        webcam-collected samples into it.
+
+        Use this before calling train() to augment the training dataset
+        with data captured via the webcam collector.
+
+        Parameters
+        ----------
+        bundle_path : str or Path
+            Path to the existing .pt dataset bundle.
+
+        Returns
+        -------
+        X : np.ndarray  shape (N, 30, 126)
+        y : np.ndarray  shape (N,)  — original integer label IDs preserved
+        """
+        import torch
+        bundle_path = Path(bundle_path)
+
+        if not bundle_path.exists():
+            raise FileNotFoundError(f"Bundle not found: {bundle_path}")
+
+        bundle = torch.load(bundle_path, map_location="cpu", weights_only=False)
+
+        if "X" not in bundle or "y" not in bundle:
+            raise ValueError("Bundle must contain 'X' and 'y' keys.")
+
+        base_X = np.asarray(bundle["X"])
+        base_y = np.asarray(bundle["y"])
+
+        print(f"Loaded bundle: {bundle_path}")
+        print(f"  Base dataset: {len(base_X)} samples, shape {base_X.shape}")
+
+        return self.merge_with_existing(base_X, base_y)
+
+    def print_summary(self):
+        """
+        Prints a summary of all collected samples grouped by label,
+        useful for checking data balance before retraining.
+        """
+        X, y = self.build_dataset()
+
+        if len(X) == 0:
+            print("No collected samples found.")
+            return
+
+        # Reverse the label_to_id mapping for display
+        id_to_label = {v: k for k, v in self.label_to_id.items()}
+
+        ids, counts = np.unique(y, return_counts=True)
+        print(f"\n{'Label':<30} | {'ID':>4} | {'Samples':>7}")
+        print("-" * 50)
+        for label_id, count in zip(ids, counts):
+            label_name = id_to_label.get(int(label_id), f"ID={label_id}")
+            print(f"{label_name:<30} | {int(label_id):>4} | {count:>7}")
+        print("-" * 50)
+        print(f"{'TOTAL':<30} | {'':>4} | {len(X):>7}\n")
+
