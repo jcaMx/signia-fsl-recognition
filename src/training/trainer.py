@@ -274,15 +274,53 @@ def load_dataset_bundle(config: TrainingConfig):
     X, y = bundle["X"], bundle["y"]
     y = np.asarray(y)
 
+    # ── Diagnostic: raw bundle ────────────────────────────────
+    print(f"\n{'='*55}")
+    print(f"DATASET DIAGNOSTIC")
+    print(f"{'='*55}")
+    print(f"Raw bundle path : {config.dataset_path}")
+    print(f"Raw bundle size : {len(y):,} samples")
+    raw_ids, raw_counts = np.unique(y, return_counts=True)
+    print(f"Raw label IDs   : {raw_ids.tolist()} ({len(raw_ids)} classes)")
+
     label_ids = resolve_label_ids(config)
+
     if label_ids is not None:
+        print(f"\nSelected label IDs : {label_ids}")
         mask = np.isin(y, label_ids)
+
         if not np.any(mask):
             raise ValueError(
                 f"No samples found for selected labels: {label_ids}"
             )
+
+        # Load optional label names for pretty printing
+        label_names = {}
+        if config.labels_csv:
+            try:
+                import pandas as pd
+                ldf = pd.read_csv(config.labels_csv)
+                label_names = dict(zip(ldf["id"].astype(int), ldf["label"]))
+            except Exception:
+                pass
+
+        print(f"\n{'Label ID':<10} {'Label Name':<30} {'Samples':>8}")
+        print("-" * 52)
+        y_masked = y[mask]
+        for lid in label_ids:
+            count = int(np.sum(y_masked == lid))
+            name = label_names.get(lid, "")
+            flag = " ← 0 samples!" if count == 0 else ""
+            print(f"{lid:<10} {name:<30} {count:>8}{flag}")
+        print("-" * 52)
+        print(f"{'TOTAL (selected)':<40} {int(mask.sum()):>8}")
+        print(f"{'DROPPED (other labels)':<40} {int((~mask).sum()):>8}")
+        print(f"{'='*55}\n")
+
         X = X[mask]
         y = y[mask]
+    else:
+        print(f"{'='*55}\n")
 
     return X, y
 
@@ -396,7 +434,41 @@ def split_dataset(
         y_test,
     )
 
+def predict(
+    model,
+    loader,
+    device,
+):
+    model.eval()
 
+    all_predictions = []
+    all_targets = []
+
+    with torch.no_grad():
+
+        for X_batch, y_batch in loader:
+
+            X_batch = X_batch.to(device)
+
+            outputs = model(X_batch)
+
+            predictions = torch.argmax(
+                outputs,
+                dim=1,
+            )
+
+            all_predictions.extend(
+                predictions.cpu().numpy()
+            )
+
+            all_targets.extend(
+                y_batch.numpy()
+            )
+
+    return (
+        np.array(all_targets),
+        np.array(all_predictions),
+    )
 # ============================================================
 # Model creation
 # ============================================================
@@ -654,10 +726,25 @@ def train(
     print(model)
 
     # --------------------------------------------------------
-    # Loss / optimizer
+    # Loss / optimizer  (class-weighted to handle imbalance)
     # --------------------------------------------------------
 
-    criterion = nn.CrossEntropyLoss()
+    # Compute inverse-frequency weights from the training split
+    # so under-represented classes are penalised more during training.
+    train_classes, train_counts = np.unique(y_train, return_counts=True)
+    weights = np.zeros(label_encoder.num_classes, dtype=np.float32)
+    for cls, cnt in zip(train_classes, train_counts):
+        weights[cls] = 1.0 / cnt
+    # Normalise so the average weight == 1 (keeps LR scale stable)
+    weights = weights / weights[weights > 0].mean()
+    class_weights = torch.tensor(weights, dtype=torch.float32).to(device)
+
+    print("\nClass weights (inverse-frequency, normalised):")
+    for cls, w in enumerate(class_weights.cpu().numpy()):
+        name = label_encoder.inverse_transform([cls])[0]
+        print(f"  [{cls}] {name:<30} weight={w:.4f}")
+
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
 
     optimizer = torch.optim.Adam(
         model.parameters(),
@@ -903,6 +990,13 @@ def train(
     else:
         print("No confusions found on the test set!")
 
+
+    y_true, y_pred = predict(
+        model,
+        test_loader,
+        device,
+    )
+
     return {
         "model": model,
         "label_encoder": label_encoder,
@@ -913,5 +1007,6 @@ def train(
         "model_path": best_model_path,
         "label_encoder_path": label_encoder_path,
         "test_loader": test_loader,
-        
+        "y_true": y_true,
+        "y_pred": y_pred,
     }
