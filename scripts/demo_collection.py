@@ -19,6 +19,7 @@ import os
 import cv2
 import time
 import logging
+from typing import Optional, List
 
 import mediapipe as mp
 
@@ -65,7 +66,7 @@ def _print_header(title: str) -> None:
     print(DIVIDER)
 
 
-def _numbered_menu(prompt: str, items: list[str]) -> int | None:
+def _numbered_menu(prompt: str, items: List[str]) -> Optional[int]:
     """
     Print a numbered menu and return the 0-based index of the chosen item.
 
@@ -102,7 +103,7 @@ def _numbered_menu(prompt: str, items: list[str]) -> int | None:
 # Selection menus
 # ============================================================
 
-def select_category(registry: LabelRegistry) -> str | None:
+def select_category(registry: LabelRegistry) -> Optional[str]:
     """
     Display the category menu and return the selected category (UPPERCASE).
     Returns None if the user wants to exit.
@@ -120,7 +121,7 @@ def select_category(registry: LabelRegistry) -> str | None:
     return categories[idx]
 
 
-def select_label(registry: LabelRegistry, category: str) -> str | None:
+def select_label(registry: LabelRegistry, category: str) -> Optional[str]:
     """
     Display the label menu for *category* and return the selected label (UPPERCASE).
     Returns None if the user wants to exit or if the category has no labels.
@@ -142,7 +143,7 @@ def select_label(registry: LabelRegistry, category: str) -> str | None:
 # Post-save menu
 # ============================================================
 
-def post_save_menu(label: str) -> int | None:
+def post_save_menu(label: str) -> Optional[int]:
     """
     Ask the user what to do after a sequence is saved.
 
@@ -467,8 +468,8 @@ def main() -> None:
     try:
         with SequenceCollector() as collector:
 
-            category: str | None = None
-            label: str | None = None
+            category: Optional[str] = None
+            label: Optional[str] = None
 
             while True:
 

@@ -14,6 +14,7 @@ Reusable by:
 import logging
 import pandas as pd
 from pathlib import Path
+from typing import Optional, Union, List
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class LabelRegistry:
         or if the CSV contains no valid rows.
     """
 
-    def __init__(self, csv_path: Path | str | None = None) -> None:
+    def __init__(self, csv_path: Optional[Union[Path, str]] = None) -> None:
         self._csv_path = Path(csv_path) if csv_path else DEFAULT_LABELS_CSV
         self._df = self._load()
 
@@ -88,7 +89,7 @@ class LabelRegistry:
     # Public API
     # ------------------------------------------------------------------
 
-    def get_categories(self) -> list[str]:
+    def get_categories(self) -> List[str]:
         """
         Return a sorted list of all unique category names (UPPERCASE).
 
@@ -99,7 +100,7 @@ class LabelRegistry:
         """
         return sorted(self._df["category"].unique().tolist())
 
-    def get_labels(self, category: str) -> list[str]:
+    def get_labels(self, category: str) -> List[str]:
         """
         Return labels belonging to *category* in their original CSV order.
 
@@ -118,7 +119,7 @@ class LabelRegistry:
         subset = self._df[self._df["category"] == key]
         return subset["label"].tolist()
 
-    def get_label_id(self, label: str, category: str) -> int | None:
+    def get_label_id(self, label: str, category: str) -> Optional[int]:
         """
         Return the integer ID for a given label within a category.
 
@@ -143,7 +144,7 @@ class LabelRegistry:
             return None
         return int(row.iloc[0]["id"])
 
-    def get_category_for_label(self, label: str) -> str | None:
+    def get_category_for_label(self, label: str) -> Optional[str]:
         """
         Return the category that owns *label*, or None if not found.
 
