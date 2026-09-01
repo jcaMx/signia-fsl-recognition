@@ -7,7 +7,7 @@ class CameraManager:
     def __init__(
         self,
         camera_index: int = 0,
-        api_preference: int = cv2.CAP_DSHOW,
+        api_preference: int = getattr(cv2, 'CAP_DSHOW', 0),
         frame_width: int = 640,
         frame_height: int = 480,
         warmup_frames: int = 3,

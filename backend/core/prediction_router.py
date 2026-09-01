@@ -30,16 +30,19 @@ class PredictionRouter:
     def _register_routes(self) -> None:
         @self.blueprint.get("/")
         def home():
+            # Return status and available categories derived from labels CSV
             return jsonify(
                 {
                     "status": "running",
+                    "available_categories": self._load_categories(),
                     "available_modes": self.model_manager.available_modes(),
                 }
             )
 
         @self.blueprint.get("/modes")
         def modes():
-            return jsonify({"modes": self.model_manager.available_modes()})
+            # Provide categories based on the labels CSV file
+            return jsonify({"categories": self._load_categories(), "modes": self.model_manager.available_modes()})
 
         @self.blueprint.post("/predict")
         def predict():
@@ -52,6 +55,24 @@ class PredictionRouter:
         def predict_letter():
             return self._predict_for_mode("alphabet", {"mode": "alphabet"})
 
+    def _load_categories(self) -> list[str]:
+        """Load unique category names from the CSV labels file.
+        Returns a sorted list of lower‑cased category strings.
+        """
+        import csv
+        from pathlib import Path
+        csv_path = Path(__file__).resolve().parents[2] / "csv" / "labels.csv"
+        categories: set[str] = set()
+        if not csv_path.is_file():
+            return []
+        with csv_path.open(newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                cat = row.get("category") or row.get("Category") or ""
+                if cat:
+                    categories.add(cat.strip().lower())
+        return sorted(categories)
+
     def _predict_for_mode(self, mode: str, payload: dict):
         predictor = self.model_manager.get(mode)
         if predictor is None:
@@ -60,6 +81,7 @@ class PredictionRouter:
                     {
                         "error": f"Unsupported mode '{mode}'.",
                         "available_modes": self.model_manager.available_modes(),
+                        "available_categories": self._load_categories(),
                     }
                 ),
                 404,

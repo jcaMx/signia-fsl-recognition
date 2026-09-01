@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import cv2
 from flask import Flask, Response, render_template, request, stream_with_context
@@ -8,10 +10,12 @@ from flask_cors import CORS
 
 from core.model_manager import ModelManager, PredictionContext, PredictionError
 from core.prediction_router import PredictionRouter
+from core.train_router import train_blueprint
 from core.prediction_stabilizer import PredictionStabilizer, PredictionStabilizerConfig
 from core.preprocessing import get_hand_count
 from webcam.camera_manager import CameraManager
 from webcam.mediapipe_pipeline import MediaPipeHandsPipeline
+from core.model_catalog import ModelCatalog
 
 
 def create_app() -> Flask:
@@ -31,6 +35,23 @@ def create_app() -> Flask:
         mediapipe_pipeline=mediapipe_pipeline,
         prediction_stabilizer=prediction_stabilizer,
     )
+    
+    model_catalog = ModelCatalog()
+
+    @app.get("/models")
+    def get_models():
+        return jsonify(model_catalog.get_catalog())
+
+    @app.get("/model_file/<path:filepath>")
+    def serve_model_file(filepath):
+        from flask import send_from_directory
+        from pathlib import Path
+        project_dir = Path(__file__).resolve().parents[1]
+        artifacts_dir = project_dir / "artifacts" / "models"
+        
+        # Security: make sure it's within artifacts/models
+        # Wait, filepath inside artifacts/models. e.g. color/color_lstm_best.pt
+        return send_from_directory(artifacts_dir, filepath)
 
     @app.get("/test")
     def test_page():
@@ -115,6 +136,7 @@ def create_app() -> Flask:
         )
 
     app.register_blueprint(prediction_router.blueprint)
+    app.register_blueprint(train_blueprint)
     return app
 
 

@@ -6,6 +6,8 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Optional
 
+from core.model_catalog import ModelCatalog
+
 
 class PredictionError(Exception):
     def __init__(self, message: str, status_code: int = 400) -> None:
@@ -73,5 +75,26 @@ class ModelManager:
             register = getattr(module, "register", None)
             if callable(register):
                 register(self)
+
+        # Also discover dynamically trained models from artifacts/models
+        try:
+            catalog = ModelCatalog()
+            cat_data = catalog.get_catalog()
+            models_dict = cat_data.get("models", {})
+            categories_dict = cat_data.get("categories", {})
+            labels_map = catalog.labels_map
+
+            for cat, rel_path in models_dict.items():
+                pt_path = catalog.project_dir / rel_path
+                if pt_path.exists():
+                    try:
+                        from core.artifact_predictor import ArtifactPredictor
+                        predictor = ArtifactPredictor(category=cat, model_path=pt_path, labels_map=labels_map)
+                        self.register(predictor)
+                        print(f"Registered ArtifactPredictor for {cat} at {pt_path.name}")
+                    except Exception as e:
+                        print(f"Failed to register ArtifactPredictor for {cat}: {e}")
+        except Exception as e:
+            print(f"Failed to scan artifact models during discover_models: {e}")
 
         self._discovered = True
