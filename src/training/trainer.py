@@ -310,7 +310,7 @@ def load_dataset_bundle(config: TrainingConfig):
         for lid in label_ids:
             count = int(np.sum(y_masked == lid))
             name = label_names.get(lid, "")
-            flag = " ← 0 samples!" if count == 0 else ""
+            flag = " <-- 0 samples!" if count == 0 else ""
             print(f"{lid:<10} {name:<30} {count:>8}{flag}")
         print("-" * 52)
         print(f"{'TOTAL (selected)':<40} {int(mask.sum()):>8}")
@@ -395,35 +395,98 @@ def split_dataset(
 ):
     """
     Creates stratified train/validation/test splits.
+    Falls back gracefully when the dataset is too small for proper splitting
+    by reusing samples across splits so training can still proceed.
     """
 
-    X_train, X_temp, y_train, y_temp = train_test_split(
-        X,
-        y,
-        test_size=(
-            config.test_size +
-            config.validation_size
-        ),
-        random_state=config.random_state,
-        stratify=y,
-    )
+    n_samples = len(X)
+    n_classes = len(np.unique(y))
 
-    # Relative validation ratio within temp
+    # Need at least 2 samples per class to do any stratified split.
+    # If we can't split at all, reuse everything for all three splits.
+    min_required = n_classes * 2
+    if n_samples < min_required:
+        print(
+            f"[WARNING] Dataset too small for stratified split "
+            f"(n_samples={n_samples}, n_classes={n_classes}). "
+            "Using all samples for train/val/test."
+        )
+        return X, X, X, y, y, y
+
+    # First split: carve out temp (val + test) from train.
+    temp_ratio = config.test_size + config.validation_size
+
+    # If even the first split would leave one side empty, fall back.
+    n_temp = max(1, round(n_samples * temp_ratio))
+    n_train = n_samples - n_temp
+    if n_train < 1 or n_temp < 1:
+        print(
+            f"[WARNING] Not enough samples for a train/temp split "
+            f"(n_samples={n_samples}). Using all samples for all splits."
+        )
+        return X, X, X, y, y, y
+
+    try:
+        X_train, X_temp, y_train, y_temp = train_test_split(
+            X,
+            y,
+            test_size=temp_ratio,
+            random_state=config.random_state,
+            stratify=y,
+        )
+    except ValueError:
+        # Stratification failed (e.g. a class has only 1 member); retry without it.
+        print(
+            "[WARNING] Stratified train/temp split failed; retrying without stratify."
+        )
+        X_train, X_temp, y_train, y_temp = train_test_split(
+            X,
+            y,
+            test_size=temp_ratio,
+            random_state=config.random_state,
+        )
+
+    # Relative validation ratio within temp.
     validation_ratio = (
         config.validation_size /
-        (
-            config.test_size +
-            config.validation_size
-        )
+        (config.test_size + config.validation_size)
     )
 
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_temp,
-        y_temp,
-        test_size=1 - validation_ratio,
-        random_state=config.random_state,
-        stratify=y_temp,
-    )
+    # If X_temp is too small to split into val + test, reuse it for both.
+    if len(X_temp) < 2:
+        print(
+            f"[WARNING] Temp set too small to split (n={len(X_temp)}). "
+            "Using temp samples for both val and test."
+        )
+        return X_train, X_temp, X_temp, y_train, y_temp, y_temp
+
+    try:
+        X_val, X_test, y_val, y_test = train_test_split(
+            X_temp,
+            y_temp,
+            test_size=1 - validation_ratio,
+            random_state=config.random_state,
+            stratify=y_temp,
+        )
+    except ValueError:
+        # Stratification failed; retry without it.
+        print(
+            "[WARNING] Stratified val/test split failed; retrying without stratify."
+        )
+        try:
+            X_val, X_test, y_val, y_test = train_test_split(
+                X_temp,
+                y_temp,
+                test_size=1 - validation_ratio,
+                random_state=config.random_state,
+            )
+        except ValueError:
+            # Still too small — reuse temp for both val and test.
+            print(
+                "[WARNING] Val/test split still failed. "
+                "Using temp samples for both val and test."
+            )
+            return X_train, X_temp, X_temp, y_train, y_temp, y_temp
 
     return (
         X_train,

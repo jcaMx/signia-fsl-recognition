@@ -1,9 +1,34 @@
 import os
+import re
 import glob
 import numpy as np
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def slugify(text: str) -> str:
+    """
+    Convert a label/category string into a safe filesystem folder name.
+
+    Rules:
+    - Lowercase
+    - Any character that is not alphanumeric or a space is replaced with '_'
+    - Spaces are also replaced with '_'
+    - Consecutive underscores are collapsed to one
+    - Leading/trailing underscores are stripped
+
+    Examples:
+        'HE/SHE'          -> 'he_she'
+        'HARD OF HEARING' -> 'hard_of_hearing'
+        'HOW ARE YOU?'    -> 'how_are_you'
+        'NO SUGAR'        -> 'no_sugar'
+    """
+    text = text.strip().lower()
+    text = re.sub(r'[^a-z0-9]+', '_', text)
+    text = text.strip('_')
+    return text
+
 
 class SequenceWriter:
     def __init__(self, base_dir=None):
@@ -34,6 +59,7 @@ class SequenceWriter:
     def save_sequence(self, sequence, category, label):
         """
         Saves a (30, 126) sequence to data/collected/<category>/<label>/seq_XXX.npy
+        Folder names are slugified (safe for all OS filesystems).
         Never overwrites existing files.
         """
         if sequence.shape != (30, 126):
@@ -42,10 +68,10 @@ class SequenceWriter:
         if not np.isfinite(sequence).all():
             raise ValueError("Sequence contains NaN or Inf values.")
 
-        category = category.lower().replace(" ", "_")
-        label = label.lower().replace(" ", "_")
+        category_slug = slugify(category)
+        label_slug = slugify(label)
         
-        class_dir = self.base_dir / category / label
+        class_dir = self.base_dir / category_slug / label_slug
         class_dir.mkdir(parents=True, exist_ok=True)
         
         next_id = self._get_next_sequence_id(class_dir)

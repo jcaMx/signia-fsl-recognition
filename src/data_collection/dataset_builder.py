@@ -1,8 +1,10 @@
 import os
+import re
 import glob
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from src.data_collection.sequence_writer import slugify
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -16,13 +18,16 @@ class DatasetBuilder:
         self.label_to_id = self._load_labels()
 
     def _load_labels(self):
-        """Loads the labels.csv to map string labels to integer IDs."""
+        """Loads the labels.csv to map slug folder names back to integer IDs."""
         if not self.labels_csv.exists():
             raise FileNotFoundError(f"Labels CSV not found at {self.labels_csv}")
             
         df = pd.read_csv(self.labels_csv)
-        # Create mapping of UPPERCASE label to integer ID
-        mapping = dict(zip(df['label'].str.upper(), df['id']))
+        # Build slug -> id mapping so folder names like 'he_she' resolve to label ID
+        mapping = {}
+        for _, row in df.iterrows():
+            slug = slugify(str(row['label']))
+            mapping[slug] = int(row['id'])
         return mapping
 
     def build_dataset(self):
@@ -47,13 +52,14 @@ class DatasetBuilder:
                 if not label_dir.is_dir():
                     continue
                     
-                label_name = label_dir.name.upper().replace("_", " ")
+                # Slugify the folder name to match the CSV slug mapping
+                label_slug = slugify(label_dir.name)
                 
-                if label_name not in self.label_to_id:
-                    print(f"Warning: Collected label '{label_name}' not found in labels.csv, skipping.")
+                if label_slug not in self.label_to_id:
+                    print(f"Warning: Folder '{label_dir.name}' (slug: '{label_slug}') not found in labels.csv, skipping.")
                     continue
                     
-                label_id = self.label_to_id[label_name]
+                label_id = self.label_to_id[label_slug]
                 npy_files = glob.glob(str(label_dir / "seq_*.npy"))
                 
                 for f in npy_files:
